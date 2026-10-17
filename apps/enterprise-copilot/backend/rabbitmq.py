@@ -69,13 +69,34 @@ class RabbitMQBroker:
             except Exception as e:
                 item["retry_count"] += 1
                 if item["retry_count"] > max_retries:
+                    import datetime
                     item["dlq_reason"] = str(e)
+                    item["dlq_timestamp"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                     self._dlq_queue.append(item)
                 else:
                     remaining_queue.append(item)
 
         self._memory_queue = remaining_queue
         return processed
+
+    def get_outbox_stats(self) -> Dict[str, Any]:
+        return {
+            "queued_messages": len(self._memory_queue),
+            "dlq_messages": len(self._dlq_queue),
+            "processed_idempotency_keys": len(self._processed_idempotency_keys),
+            "is_enabled": self.enabled,
+        }
+
+    def replay_dlq(self) -> int:
+        replayed = 0
+        while self._dlq_queue:
+            item = self._dlq_queue.pop(0)
+            item["retry_count"] = 0
+            item.pop("dlq_reason", None)
+            item.pop("dlq_timestamp", None)
+            self._memory_queue.append(item)
+            replayed += 1
+        return replayed
 
 
 rabbitmq_broker = RabbitMQBroker()

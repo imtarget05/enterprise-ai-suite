@@ -71,6 +71,7 @@ class SharedERPNextAdapter:
             doc_name = f"SO-2026-{len(self._sales_orders) + 1:04d}"
             total = sum(i["qty"] * i["rate"] for i in items)
             record = {
+                "doc_type": "Sales Order",
                 "name": doc_name,
                 "customer": customer,
                 "docstatus": 1,
@@ -97,8 +98,31 @@ class SharedERPNextAdapter:
         batch_number: str,
         verdict: str,
         defects_summary: List[str],
+        inspection_parameters: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         erp_status = "Accepted" if verdict == "PASSED" else "Rejected"
+
+        readings = inspection_parameters or [
+            {
+                "specification": "Surface Crack & Porosity Tolerance",
+                "acceptance_criteria": "Zero critical defects (crack, structural porosity)",
+                "reading_1": "0 defects" if verdict == "PASSED" else "Defect detected",
+                "status": "Accepted" if verdict == "PASSED" else "Rejected",
+            },
+            {
+                "specification": "Defect Area Ratio",
+                "acceptance_criteria": "<= 3.00% surface area",
+                "reading_1": "<= 3%" if verdict == "PASSED" else "> 3%",
+                "status": "Accepted" if verdict == "PASSED" else "Rejected",
+            },
+            {
+                "specification": "Visual Surface Color & Texture",
+                "acceptance_criteria": "Delta E < 2.0 / Class Minor within tolerance",
+                "reading_1": "Conformant",
+                "status": "Accepted",
+            },
+        ]
+
         if self.use_sandbox:
             if inspection_id in self._quality_inspections:
                 return {"data": self._quality_inspections[inspection_id], "idempotent_replay": True}
@@ -112,6 +136,8 @@ class SharedERPNextAdapter:
                 "status": erp_status,
                 "remarks": "; ".join(defects_summary),
                 "external_id": inspection_id,
+                "readings": readings,
+                "inspection_parameters": readings,
             }
             self._quality_inspections[inspection_id] = record
             return {"data": record, "idempotent_replay": False}
@@ -123,6 +149,7 @@ class SharedERPNextAdapter:
             "status": erp_status,
             "remarks": "; ".join(defects_summary),
             "external_id": inspection_id,
+            "readings": readings,
             "docstatus": 1,
         }
         async with httpx.AsyncClient(timeout=10.0) as client:

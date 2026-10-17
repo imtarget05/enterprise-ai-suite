@@ -17,6 +17,7 @@ DEFECT_CLASSES = {
     1: ("void_cavity", DefectSeverity.MAJOR),
     2: ("dent_scratch", DefectSeverity.MINOR),
     3: ("color_defect", DefectSeverity.NEGLIGIBLE),
+    4: ("structural_porosity", DefectSeverity.CRITICAL),
 }
 
 

@@ -10,8 +10,8 @@ import sys
 import time
 import numpy as np
 
-# Ensure parent directory is in sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+# Ensure repository root is in sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
 from apps.visual_quality_gate.inference.onnx_infer import onnx_detector
 

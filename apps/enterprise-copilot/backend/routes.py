@@ -1,11 +1,11 @@
 """
 FastAPI Routes for Project 1 (Enterprise Copilot).
 Implements Chat, Workflow Checkpointing, Maker-Checker Approvals,
-Shared ERPNext Sync, and Salesforce Adapter queries.
+Shared ERPNext Sync, and Salesforce Adapter queries (Accounts, Leads, Opportunities).
 """
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from packages.auth_integration.security import (
     UserContext, UserRole, enforce_maker_checker_rule, enforce_tenant_isolation, get_current_user, require_roles
@@ -46,10 +46,25 @@ async def chat_endpoint(req: ChatRequest, user: UserContext = Depends(get_curren
         "workflow_id": state.workflow_id,
         "requires_approval": state.requires_approval,
         "approval_status": state.approval_status,
+        "current_state": state.current_state,
         "draft_order": state.draft_order,
         "response": state.response_text,
         "retrieved_sources": len(state.retrieved_docs),
+        "citations": state.retrieved_docs,
+        "audit_trail": state.audit_trail,
     }
+
+
+@router.get("/workflows/{workflow_id}")
+async def get_workflow(
+    workflow_id: str,
+    user: UserContext = Depends(get_current_user),
+):
+    checkpoint = copilot_graph.checkpoints.get(workflow_id)
+    if not checkpoint:
+        raise HTTPException(status_code=404, detail="Workflow checkpoint not found.")
+    enforce_tenant_isolation(user, checkpoint.tenant_id)
+    return checkpoint.model_dump()
 
 
 @router.post("/workflows/{workflow_id}/approve")
@@ -63,6 +78,14 @@ async def approve_workflow(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid supervisor authorization PIN.",
         )
+
+    checkpoint = copilot_graph.checkpoints.get(workflow_id)
+    if not checkpoint:
+        raise HTTPException(status_code=404, detail="Workflow checkpoint not found.")
+
+    # Security ABAC & RBAC enforcement
+    enforce_tenant_isolation(user, checkpoint.tenant_id)
+    enforce_maker_checker_rule(maker_id=checkpoint.user_id, checker_id=user.user_id)
 
     try:
         approved = req.action.upper() == "APPROVED"
@@ -92,9 +115,13 @@ async def approve_workflow(
             }],
             external_id=state.draft_order.get("order_id", workflow_id),
         )
+        erp_record = erp_res.get("data", erp_res) if isinstance(erp_res, dict) else erp_res
+        if isinstance(erp_record, dict) and "doc_type" not in erp_record:
+            erp_record["doc_type"] = "Sales Order"
+        state.erp_record = erp_record
         return {
             "status": "APPROVED_AND_POSTED",
-            "erp_record": erp_res,
+            "erp_record": erp_record,
             "workflow": state.model_dump(),
         }
 
@@ -115,6 +142,47 @@ async def get_salesforce_account(external_id: str, user: UserContext = Depends(g
     if not acc:
         raise HTTPException(status_code=404, detail=f"Account with external ID {external_id} not found in Salesforce.")
     return acc
+
+
+@router.get("/salesforce/leads")
+async def query_salesforce_leads(
+    company: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(10, le=50),
+    user: UserContext = Depends(get_current_user),
+):
+    leads = await salesforce_adapter.query_leads(company=company, status=status, limit=limit)
+    return {"total": len(leads), "leads": leads}
+
+
+@router.get("/salesforce/leads/{external_id}")
+async def get_salesforce_lead(external_id: str, user: UserContext = Depends(get_current_user)):
+    lead = await salesforce_adapter.get_lead_by_external_id(external_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail=f"Lead with external ID {external_id} not found in Salesforce.")
+    return lead
+
+
+@router.get("/salesforce/opportunities")
+async def query_salesforce_opportunities(
+    account_id: Optional[str] = Query(None),
+    stage_name: Optional[str] = Query(None),
+    min_amount: Optional[float] = Query(None),
+    limit: int = Query(10, le=50),
+    user: UserContext = Depends(get_current_user),
+):
+    opps = await salesforce_adapter.query_opportunities(
+        account_id=account_id, stage_name=stage_name, min_amount=min_amount, limit=limit
+    )
+    return {"total": len(opps), "opportunities": opps}
+
+
+@router.get("/salesforce/opportunities/{external_id}")
+async def get_salesforce_opportunity(external_id: str, user: UserContext = Depends(get_current_user)):
+    opp = await salesforce_adapter.get_opportunity_by_external_id(external_id)
+    if not opp:
+        raise HTTPException(status_code=404, detail=f"Opportunity with external ID {external_id} not found in Salesforce.")
+    return opp
 
 
 @router.get("/diagnostics/cost")

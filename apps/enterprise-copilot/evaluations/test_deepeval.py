@@ -16,7 +16,7 @@ class GoldenRAGTestCase:
 
 def calculate_faithfulness(context: str, actual_answer: str) -> float:
     """
-    Measures percentage of facts in actual_answer grounded in context.
+    Measures percentage of core domain facts in actual_answer grounded in context.
     """
     key_facts = ["10,000", "checker", "pin", "alu-cnc-001", "$25.00"]
     matches = sum(1 for f in key_facts if f in actual_answer.lower())
@@ -32,6 +32,15 @@ def calculate_answer_relevancy(query: str, actual_answer: str) -> float:
     return min(1.0, matches / (len(query_terms) or 1))
 
 
+def calculate_hallucination_score(actual_answer: str) -> float:
+    """
+    Detects ungrounded speculative terms or policy contradictions.
+    """
+    hallucinated_terms = ["50,000", "miễn kiểm tra", "tự động duyệt không cần pin", "unlimited credit", "ceo duyệt"]
+    detected = sum(1 for term in hallucinated_terms if term in actual_answer.lower())
+    return detected / len(hallucinated_terms)
+
+
 def test_deepeval_rag_faithfulness_metric():
     test_case = GoldenRAGTestCase(
         query="Đơn hàng linh kiện nhôm CNC trên 10,000 USD có quy định duyệt như thế nào?",
@@ -42,6 +51,19 @@ def test_deepeval_rag_faithfulness_metric():
 
     faithfulness_score = calculate_faithfulness(test_case.context, test_case.actual_answer)
     relevancy_score = calculate_answer_relevancy(test_case.query, test_case.actual_answer)
+    hallucination_score = calculate_hallucination_score(test_case.actual_answer)
 
     assert faithfulness_score >= 0.80, f"Faithfulness score {faithfulness_score} is below 0.80 threshold."
     assert relevancy_score >= 0.70, f"Answer Relevancy score {relevancy_score} is below 0.70 threshold."
+    assert hallucination_score == 0.0, f"Hallucination detected: {hallucination_score}"
+
+
+def test_deepeval_detects_hallucinations_and_low_faithfulness():
+    bad_hallucinated_answer = (
+        "Đơn hàng linh kiện nhôm trên 50,000 USD được tự động duyệt không cần pin theo quyết định riêng."
+    )
+    faithfulness = calculate_faithfulness("", bad_hallucinated_answer)
+    hallucination = calculate_hallucination_score(bad_hallucinated_answer)
+
+    assert faithfulness < 0.50, "Hallucinated answer must fail faithfulness gate (< 0.50)"
+    assert hallucination > 0.0, "Hallucination score must flag forbidden terms"

@@ -142,6 +142,12 @@ async def review_inspection(
     req: ReviewRequest,
     user: UserContext = Depends(require_roles([UserRole.QC_INSPECTOR, UserRole.CHECKER, UserRole.SYSTEM_ADMIN])),
 ):
+    if not req.notes or not req.notes.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mandatory audit reason is required for inspector review or override.",
+        )
+
     qc_stream.emit_event(
         EventEnvelope(
             event_type=QCEventType.REVIEW_COMPLETED,
@@ -151,32 +157,56 @@ async def review_inspection(
                 "inspection_id": inspection_id,
                 "reviewer_id": user.user_id,
                 "action": req.action,
+                "override_verdict": req.override_verdict.value if req.override_verdict else None,
                 "review_notes": req.notes,
             },
         )
     )
-    return {"status": "REVIEW_RECORDED", "inspection_id": inspection_id}
+    return {
+        "status": "REVIEW_RECORDED",
+        "inspection_id": inspection_id,
+        "action": req.action,
+        "override_verdict": req.override_verdict.value if req.override_verdict else None,
+    }
+
+
+class ERPSyncRequest(BaseModel):
+    item_code: Optional[str] = "ALU-CNC-001"
+    batch_number: Optional[str] = "BATCH-2026-X1"
+    verdict: Optional[QualityVerdict] = QualityVerdict.PASSED
+    retry_count: Optional[int] = 0
+    inspection_parameters: Optional[List[Dict[str, Any]]] = None
 
 
 @router.post("/inspections/{inspection_id}/sync-erp")
 async def sync_inspection_to_erp(
     inspection_id: str,
-    item_code: str = "ALU-CNC-001",
-    batch_number: str = "BATCH-2026-X1",
-    verdict: QualityVerdict = QualityVerdict.PASSED,
+    req: Optional[ERPSyncRequest] = None,
+    item_code: Optional[str] = None,
+    batch_number: Optional[str] = None,
+    verdict: Optional[QualityVerdict] = None,
+    retry_count: Optional[int] = None,
     user: UserContext = Depends(require_roles([UserRole.QC_INSPECTOR, UserRole.CHECKER, UserRole.SYSTEM_ADMIN])),
 ):
+    actual_item_code = (req.item_code if req and req.item_code else None) or item_code or "ALU-CNC-001"
+    actual_batch = (req.batch_number if req and req.batch_number else None) or batch_number or "BATCH-2026-X1"
+    actual_verdict = (req.verdict if req and req.verdict else None) or verdict or QualityVerdict.PASSED
+    actual_retry = (req.retry_count if req and req.retry_count is not None else None) or retry_count or 0
+    actual_params = req.inspection_parameters if req else None
+
     correlation_id = str(uuid.uuid4())
     qc_stream.emit_event(
         EventEnvelope(
             event_type=QCEventType.ERP_SYNC_REQUESTED,
             correlation_id=correlation_id,
             partition_key=inspection_id,
+            retry_count=actual_retry,
             payload={
                 "inspection_id": inspection_id,
-                "item_code": item_code,
-                "verdict": verdict.value,
-                "batch_number": batch_number,
+                "item_code": actual_item_code,
+                "verdict": actual_verdict.value,
+                "batch_number": actual_batch,
+                "retry_count": actual_retry,
             },
         )
     )
@@ -184,10 +214,11 @@ async def sync_inspection_to_erp(
     try:
         res = await erpnext_adapter.sync_quality_inspection(
             inspection_id=inspection_id,
-            item_code=item_code,
-            batch_number=batch_number,
-            verdict=verdict.value,
+            item_code=actual_item_code,
+            batch_number=actual_batch,
+            verdict=actual_verdict.value,
             defects_summary=["Automated Optical Inspection"],
+            inspection_parameters=actual_params,
         )
         doc_name = res.get("data", {}).get("name", "QI-2026-0001")
         qc_stream.emit_event(
@@ -195,20 +226,27 @@ async def sync_inspection_to_erp(
                 event_type=QCEventType.ERP_SYNC_COMPLETED,
                 correlation_id=correlation_id,
                 partition_key=inspection_id,
-                payload={"inspection_id": inspection_id, "erp_doc_name": doc_name},
+                retry_count=actual_retry,
+                payload={
+                    "inspection_id": inspection_id,
+                    "erp_doc_name": doc_name,
+                    "retry_count": actual_retry,
+                },
             )
         )
-        return {"status": "SYNCED_TO_ERPNEXT", "erp_record": res}
+        return {"status": "SYNCED_TO_ERPNEXT", "erp_record": res, "retry_count": actual_retry}
     except Exception as e:
         qc_stream.emit_event(
             EventEnvelope(
                 event_type=QCEventType.ERP_SYNC_FAILED,
                 correlation_id=correlation_id,
                 partition_key=inspection_id,
+                retry_count=actual_retry,
                 payload={
                     "inspection_id": inspection_id,
                     "error_code": "ERP_SYNC_EXCEPTION",
                     "error_message": str(e),
+                    "retry_count": actual_retry,
                 },
             )
         )

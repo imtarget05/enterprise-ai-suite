@@ -30,6 +30,7 @@ class QCSafetyGate:
         """
         sop_catalog = {
             "surface_crack": "SOP-QC-CRACK-01: Vết nứt bề mặt có thể gây nứt gãy chịu lực. Cách ly chi tiết vào khu vực Red Bin, chụp ảnh góc nghiêng 45 độ và chuyển cho Kỹ sư Luyện kim thẩm định.",
+            "structural_porosity": "SOP-QC-POROSITY-02: Độ xốp / rỗ khí kết cấu (structural porosity) làm giảm độ bền mỏi. Cách ly chi tiết vào khu vực Red Bin và kiểm tra chụp X-quang công nghiệp (CT scan).",
             "void_cavity": "SOP-QC-VOID-02: Rỗ khí đúc vượt tiêu chuẩn yêu cầu kiểm tra siêu âm NDT (Non-Destructive Testing) để xác định độ sâu khuyết tật.",
             "dent_scratch": "SOP-QC-SCRATCH-03: Vết trầy xước nhẹ có thể xử lý đánh bóng lại (Rework) nếu chiều sâu < 0.2mm.",
             "color_defect": "SOP-QC-COLOR-04: Sai lệch màu sắc lớp mạ Anodized, cho phép xuất xưởng nếu nằm trong bảng màu Delta E < 2.0.",

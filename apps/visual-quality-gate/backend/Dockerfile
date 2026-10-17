@@ -18,9 +18,8 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 appgroup && \
     adduser --system --uid 1001 --ingroup appgroup --no-create-home appuser
 
-COPY --from=builder /root/.local /home/appuser/.local
-COPY --chown=appuser:appgroup shared/ /app/shared/
-COPY --chown=appuser:appgroup product-b-qc/backend/ /app/product-b-qc/backend/
+COPY --chown=appuser:appgroup packages/ /app/packages/
+COPY --chown=appuser:appgroup apps/ /app/apps/
 
 ENV PATH=/home/appuser/.local/bin:$PATH
 ENV PYTHONPATH=/app
@@ -31,4 +30,4 @@ USER 1001:1001
 
 EXPOSE 8002
 
-CMD ["python", "product-b-qc/backend/app/main.py"]
+CMD ["python", "-m", "apps.visual_quality_gate.backend.main"]

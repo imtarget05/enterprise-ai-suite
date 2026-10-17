@@ -61,6 +61,40 @@ def create_access_token(user: UserContext, expires_delta_seconds: int = 3600) ->
 
 
 def decode_token(token: str) -> UserContext:
+    # Support development/demo tokens for fast frontend prototyping
+    if token.startswith("mock-token-"):
+        role_str = token.replace("mock-token-", "").upper()
+        if role_str == "CHECKER":
+            return UserContext(
+                user_id="checker-1",
+                username="checker_dev",
+                email="checker@enterprise.local",
+                roles=[UserRole.CHECKER],
+                tenant_id="TENANT-001",
+                facility_id="FAC-01",
+                department="SUPERVISION",
+            )
+        elif role_str == "AUDITOR":
+            return UserContext(
+                user_id="auditor-1",
+                username="auditor_dev",
+                email="auditor@enterprise.local",
+                roles=[UserRole.AUDITOR],
+                tenant_id="TENANT-001",
+                facility_id="FAC-01",
+                department="AUDIT",
+            )
+        else:
+            return UserContext(
+                user_id="maker-1",
+                username="maker_dev",
+                email="maker@enterprise.local",
+                roles=[UserRole.MAKER],
+                tenant_id="TENANT-001",
+                facility_id="FAC-01",
+                department="OPERATIONS",
+            )
+
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         return UserContext(

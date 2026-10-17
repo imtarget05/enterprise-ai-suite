@@ -5,7 +5,7 @@ Configuration for Product B (Visual QC & Defect Inspection).
 import os
 from enum import Enum
 from typing import Optional
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ExecutionProfile(str, Enum):
@@ -47,9 +47,7 @@ class QCSettings(BaseSettings):
     ERPNEXT_API_SECRET: str = os.getenv("ERPNEXT_API_SECRET", "demo_erp_api_secret")
     ERPNEXT_USE_SANDBOX: bool = os.getenv("ERPNEXT_USE_SANDBOX", "true").lower() == "true"
 
-    class Config:
-        env_file = ".env"
-        extra = "allow"
+    model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
 
 qc_settings = QCSettings()

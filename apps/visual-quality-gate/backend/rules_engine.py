@@ -13,7 +13,7 @@ class QCRulesConfig:
         self,
         max_critical_defects: int = 0,
         max_major_defects: int = 1,
-        max_total_area_ratio: float = 0.04,  # Defect area cannot exceed 4% of surface
+        max_total_area_ratio: float = 0.03,  # Defect area ratio > 3% triggers QUARANTINE
         min_confidence_to_flag: float = 0.40,
     ):
         self.max_critical_defects = max_critical_defects
@@ -37,34 +37,45 @@ class QCRulesEngine:
         critical_count = sum(1 for d in valid_defects if d.severity == DefectSeverity.CRITICAL)
         major_count = sum(1 for d in valid_defects if d.severity == DefectSeverity.MAJOR)
         minor_count = sum(1 for d in valid_defects if d.severity == DefectSeverity.MINOR)
+        negligible_count = sum(1 for d in valid_defects if d.severity == DefectSeverity.NEGLIGIBLE)
         total_area = sum(d.area_ratio for d in valid_defects)
 
         rule_evals["critical_count"] = critical_count
         rule_evals["major_count"] = major_count
         rule_evals["minor_count"] = minor_count
+        rule_evals["negligible_count"] = negligible_count
         rule_evals["total_area_ratio"] = round(total_area, 4)
+        rule_evals["area_threshold"] = self.config.max_total_area_ratio
 
-        # Rule 1: Zero Critical Defect Tolerance -> Auto-Quarantine for physical inspection
+        # Rule 1: Zero Critical Defect Tolerance -> Auto-Quarantine (crack, structural porosity)
         if critical_count > self.config.max_critical_defects:
             verdict = QualityVerdict.QUARANTINE
-            reasons.append(f"CRITICAL DEFECT DETECTED: Found {critical_count} critical defects (Max allowed: 0). Immediate quarantine required.")
+            reasons.append(
+                f"CRITICAL DEFECT DETECTED: Found {critical_count} critical defects (Max allowed: {self.config.max_critical_defects}). Immediate quarantine required."
+            )
             return verdict, reasons, rule_evals
 
-        # Rule 2: Excessive Total Defect Area -> Outright Reject
+        # Rule 2: Total Defect Area Ratio > 3% -> Auto-Quarantine for physical evaluation
         if total_area > self.config.max_total_area_ratio:
-            verdict = QualityVerdict.REJECTED
-            reasons.append(f"SURFACE AREA LIMIT EXCEEDED: Defect area ratio is {total_area:.2%} (Max allowed: {self.config.max_total_area_ratio:.2%}).")
+            verdict = QualityVerdict.QUARANTINE
+            reasons.append(
+                f"DEFECT AREA LIMIT EXCEEDED: Defect area ratio is {total_area:.2%} (Threshold: {self.config.max_total_area_ratio:.2%}). Quarantine required for physical inspection."
+            )
             return verdict, reasons, rule_evals
 
-        # Rule 3: Major Defect Tolerance Exceeded
+        # Rule 3: Major Defect Tolerance Exceeded -> Quarantine
         if major_count > self.config.max_major_defects:
-            verdict = QualityVerdict.REJECTED
-            reasons.append(f"MAJOR DEFECT COUNT EXCEEDED: Found {major_count} major defects (Max allowed: {self.config.max_major_defects}).")
+            verdict = QualityVerdict.QUARANTINE
+            reasons.append(
+                f"MAJOR DEFECT COUNT EXCEEDED: Found {major_count} major defects (Max allowed: {self.config.max_major_defects}). Quarantine required."
+            )
             return verdict, reasons, rule_evals
 
-        # If only minor/negligible defects within tolerance
+        # Rule 4: Color/minor defects below threshold trigger PASSED
         verdict = QualityVerdict.PASSED
-        reasons.append("Quality inspection criteria met. No critical defects; minor surface imperfections within tolerance.")
+        reasons.append(
+            f"Quality inspection criteria met. No critical defects; defect area ratio ({total_area:.2%}) is within tolerance (<= {self.config.max_total_area_ratio:.2%}); minor surface imperfections within allowable limits."
+        )
         return verdict, reasons, rule_evals
 
 

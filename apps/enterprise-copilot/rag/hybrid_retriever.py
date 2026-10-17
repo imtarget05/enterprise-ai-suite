@@ -77,7 +77,12 @@ class HybridRetriever:
         sparse_results = self.search_sparse(query, top_k=10)
         rrf_fused = reciprocal_rank_fusion([dense_results, sparse_results], k=60, top_n=8)
         final_ranked = self.reranker.rerank(query, rrf_fused, top_k=top_k)
-        return [doc for doc, _score in final_ranked]
+        results = []
+        for doc, score in final_ranked:
+            doc_data = dict(doc)
+            doc_data["score"] = round(float(score), 4)
+            results.append(doc_data)
+        return results
 
 
 hybrid_retriever = HybridRetriever()
