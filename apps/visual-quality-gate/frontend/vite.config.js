@@ -6,5 +6,11 @@ export default defineConfig({
   server: {
     port: 3001,
     host: true,
+    proxy: {
+      '/api/qc': {
+        target: 'http://localhost:8002',
+        changeOrigin: true,
+      }
+    }
   }
 })

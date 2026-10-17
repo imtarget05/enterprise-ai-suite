@@ -22,6 +22,7 @@ from apps.visual_quality_gate.inference.model_registry import model_registry
 from apps.visual_quality_gate.inference.onnx_infer import onnx_detector
 from apps.visual_quality_gate.backend.safety_gate import safety_gate
 from apps.visual_quality_gate.event_consumers.redpanda_stream import qc_stream
+from packages.observability.telemetry import telemetry
 
 router = APIRouter(prefix="/v1", tags=["Quality Control"])
 storage = StorageManager(
@@ -47,12 +48,13 @@ async def create_inspection(
     work_order_id: str = Form("WO-9901"),
     user: UserContext = Depends(get_current_user),
 ):
-    inspection_id = f"INSP-{uuid.uuid4().hex[:8].upper()}"
-    correlation_id = str(uuid.uuid4())
-    image_bytes = await file.read()
+    with telemetry.trace_span("qc.inspection", user.user_id, {"item_code": item_code, "batch": batch_number}):
+        inspection_id = f"INSP-{uuid.uuid4().hex[:8].upper()}"
+        correlation_id = str(uuid.uuid4())
+        image_bytes = await file.read()
 
-    obj_name = f"inspections/{inspection_id}/{file.filename}"
-    uri, sha256 = storage.upload_bytes(image_bytes, obj_name, content_type=file.content_type or "image/jpeg")
+        obj_name = f"inspections/{inspection_id}/{file.filename}"
+        uri, sha256 = storage.upload_bytes(image_bytes, obj_name, content_type=file.content_type or "image/jpeg")
 
     # Event 1: inspection.created
     qc_stream.emit_event(

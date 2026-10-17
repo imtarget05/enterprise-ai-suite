@@ -28,3 +28,11 @@ jobs:
       - name: Run Copilot Tests & DeepEval
         run: |
           PYTHONPATH=. pytest -v apps/enterprise-copilot/tests/ apps/enterprise-copilot/evaluations/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build Copilot Frontend (Cloudflare Pages Verification)
+        run: |
+          cd apps/enterprise-copilot/frontend
+          npm ci || npm install
+          npm run build

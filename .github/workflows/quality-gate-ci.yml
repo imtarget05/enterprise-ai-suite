@@ -29,3 +29,11 @@ jobs:
       - name: Run ONNX CPU Latency Benchmark
         run: |
           PYTHONPATH=. python apps/visual-quality-gate/evaluations/benchmark_onnx.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build Quality Gate Frontend (Cloudflare Pages Verification)
+        run: |
+          cd apps/visual-quality-gate/frontend
+          npm ci || npm install
+          npm run build

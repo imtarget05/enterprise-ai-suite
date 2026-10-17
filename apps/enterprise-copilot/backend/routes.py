@@ -19,6 +19,7 @@ from apps.enterprise_copilot.backend.config import settings
 from apps.enterprise_copilot.backend.llm_provider import llm_client
 from apps.enterprise_copilot.backend.rabbitmq import rabbitmq_broker
 from apps.enterprise_copilot.workflows.graph import copilot_graph
+from packages.observability.telemetry import telemetry
 
 router = APIRouter(prefix="/v1", tags=["Copilot"])
 
@@ -37,11 +38,12 @@ class ApprovalRequest(BaseModel):
 @router.post("/chat")
 async def chat_endpoint(req: ChatRequest, user: UserContext = Depends(get_current_user)):
     enforce_tenant_isolation(user, req.tenant_id or user.tenant_id)
-    state = await copilot_graph.run(
-        query=req.query,
-        user_id=user.user_id,
-        tenant_id=req.tenant_id or user.tenant_id,
-    )
+    with telemetry.trace_span("copilot.chat", user.user_id, {"tenant_id": req.tenant_id, "query_len": len(req.query)}):
+        state = await copilot_graph.run(
+            query=req.query,
+            user_id=user.user_id,
+            tenant_id=req.tenant_id or user.tenant_id,
+        )
     return {
         "workflow_id": state.workflow_id,
         "requires_approval": state.requires_approval,

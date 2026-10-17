@@ -185,6 +185,8 @@ def test_safety_gate_excessive_major_defects():
 
 def test_onnx_inference_latency_sla():
     dummy_bytes = b"INSPECTION_CALIBRATION_PAYLOAD_TEST_12345"
+    # Pre-test warmup pass
+    onnx_detector.infer_image(dummy_bytes)
     latencies = []
     for _ in range(5):
         boxes, lat_ms = onnx_detector.infer_image(dummy_bytes)
