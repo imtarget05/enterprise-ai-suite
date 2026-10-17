@@ -29,11 +29,11 @@ jobs:
 
       - name: Run ONNX Runtime CPU Benchmark
         run: |
-          python infra/scripts/benchmark_onnx.py
+          PYTHONPATH=. python infrastructure/scripts/benchmark_onnx.py
 
       - name: Run End-to-End Smoke Test
         run: |
-          python infra/scripts/smoke_test.py
+          PYTHONPATH=. python infrastructure/scripts/smoke_test.py
 
   build-multiarch-images:
     needs: test-and-evaluate
@@ -52,11 +52,12 @@ jobs:
       - name: Build Product A ARM64 Image (Dry Run)
         run: |
           docker buildx build --platform linux/amd64,linux/arm64 \
-            -f product-a-copilot/backend/Dockerfile \
+            -f apps/enterprise-copilot/backend/Dockerfile \
             -t enterprise-copilot:ci-check .
 
       - name: Build Product B ARM64 Image (Dry Run)
         run: |
           docker buildx build --platform linux/amd64,linux/arm64 \
-            -f product-b-qc/backend/Dockerfile \
+            -f apps/visual-quality-gate/backend/Dockerfile \
             -t enterprise-qc:ci-check .
+
