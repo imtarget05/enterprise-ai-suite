@@ -142,7 +142,7 @@ export default function App() {
   const [apiStatus, setApiStatus] = useState('Checking...');
   const chatBottomRef = useRef(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/copilot';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/copilot';
 
   useEffect(() => {
     fetch(`${API_BASE}/health`)

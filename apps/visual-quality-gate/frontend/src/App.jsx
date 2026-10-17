@@ -56,7 +56,7 @@ export default function App() {
   const [overrideNotice, setOverrideNotice] = useState(null);
 
   const canvasRef = useRef(null);
-  const API_BASE = import.meta.env.VITE_QC_API_BASE_URL || 'http://localhost:8002/api/qc';
+  const API_BASE = import.meta.env.VITE_QC_API_BASE_URL || '/api/qc';
 
   useEffect(() => {
     fetch(`${API_BASE}/health`)

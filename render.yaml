@@ -1,0 +1,36 @@
+services:
+  # Project 1: Enterprise AI Copilot API
+  - type: web
+    name: enterprise-copilot-api
+    runtime: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -e ".[demo]"
+    startCommand: python -m uvicorn apps.enterprise_copilot.backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_5XzkMLSBjH4m@ep-autumn-sky-b35l6g69-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+      - key: PROFILE
+        value: demo
+      - key: ENVIRONMENT
+        value: production
+      - key: HITL_PIN
+        value: "123456"
+
+  # Project 2: Visual Quality Gate API
+  - type: web
+    name: visual-quality-gate-api
+    runtime: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -e ".[demo]"
+    startCommand: python -m uvicorn apps.visual_quality_gate.backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_5XzkMLSBjH4m@ep-autumn-sky-b35l6g69-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+      - key: PROFILE
+        value: demo
+      - key: ENVIRONMENT
+        value: production
+      - key: KAFKA_ENABLED
+        value: "false"
