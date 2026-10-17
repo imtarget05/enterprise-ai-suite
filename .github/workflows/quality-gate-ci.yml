@@ -1,0 +1,31 @@
+name: Project 2 — Visual Quality Gate CI
+
+on:
+  push:
+    paths:
+      - "apps/visual-quality-gate/**"
+      - "packages/**"
+      - ".github/workflows/quality-gate-ci.yml"
+  pull_request:
+    paths:
+      - "apps/visual-quality-gate/**"
+      - "packages/**"
+
+jobs:
+  test-quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run Quality Gate Tests
+        run: |
+          PYTHONPATH=. pytest -v apps/visual-quality-gate/tests/
+      - name: Run ONNX CPU Latency Benchmark
+        run: |
+          PYTHONPATH=. python apps/visual-quality-gate/evaluations/benchmark_onnx.py

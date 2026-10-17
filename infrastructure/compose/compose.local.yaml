@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  copilot-api:
+    build:
+      context: ../../
+      dockerfile: product-a-copilot/backend/Dockerfile
+    container_name: copilot-api-local
+    ports:
+      - "8001:8001"
+    environment:
+      - PROFILE=local
+      - DATABASE_URL=sqlite:///./enterprise_copilot.db
+      - ERPNEXT_USE_SANDBOX=true
+      - SALESFORCE_USE_SANDBOX=true
+      - LLM_PROVIDER=MOCK
+    restart: unless-stopped
+
+  qc-api:
+    build:
+      context: ../../
+      dockerfile: product-b-qc/backend/Dockerfile
+    container_name: qc-api-local
+    ports:
+      - "8002:8002"
+    environment:
+      - PROFILE=local
+      - STORAGE_PROVIDER=local
+      - ERPNEXT_USE_SANDBOX=true
+      - KAFKA_ENABLED=false
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-local
+    ports:
+      - "8080:80"
+    volumes:
+      - ../nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - copilot-api
+      - qc-api

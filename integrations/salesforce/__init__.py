@@ -1,0 +1,1 @@
+from integrations.salesforce.adapter import SalesforceAdapter, salesforce_adapter

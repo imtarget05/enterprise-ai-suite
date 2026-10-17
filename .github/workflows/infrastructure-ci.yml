@@ -1,0 +1,22 @@
+name: Infrastructure & Compose Validation CI
+
+on:
+  push:
+    paths:
+      - "infrastructure/**"
+      - "compose*.yaml"
+      - ".github/workflows/infrastructure-ci.yml"
+  pull_request:
+    paths:
+      - "infrastructure/**"
+      - "compose*.yaml"
+
+jobs:
+  validate-infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Docker Compose Configuration
+        run: |
+          docker compose -f compose.yaml config
+          docker compose -f compose.full.yaml config

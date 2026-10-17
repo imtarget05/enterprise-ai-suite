@@ -1,0 +1,23 @@
+name: Security, RBAC & ABAC Regression CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run RBAC, ABAC & Maker-Checker Regression Tests
+        run: |
+          PYTHONPATH=. pytest -v tests/test_security_rbac.py

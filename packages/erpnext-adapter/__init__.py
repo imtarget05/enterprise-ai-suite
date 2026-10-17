@@ -1,0 +1,1 @@
+from packages.erpnext_adapter.client import SharedERPNextAdapter, erpnext_adapter

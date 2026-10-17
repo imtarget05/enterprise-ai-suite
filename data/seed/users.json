@@ -1,0 +1,30 @@
+[
+  {
+    "username": "maker_demo",
+    "email": "maker@enterprise.local",
+    "role": "MAKER",
+    "tenant_id": "TENANT-001",
+    "facility_id": "FAC-01"
+  },
+  {
+    "username": "checker_demo",
+    "email": "checker@enterprise.local",
+    "role": "CHECKER",
+    "tenant_id": "TENANT-001",
+    "facility_id": "FAC-01"
+  },
+  {
+    "username": "inspector_demo",
+    "email": "qc_inspector@enterprise.local",
+    "role": "QC_INSPECTOR",
+    "tenant_id": "TENANT-001",
+    "facility_id": "FAC-01"
+  },
+  {
+    "username": "auditor_demo",
+    "email": "auditor@enterprise.local",
+    "role": "AUDITOR",
+    "tenant_id": "TENANT-001",
+    "facility_id": "FAC-01"
+  }
+]

@@ -1,0 +1,62 @@
+name: Enterprise AI Suite CI/CD & Evaluation Gate
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Unit & Integration Tests
+        run: |
+          PYTHONPATH=. pytest -v tests/ --junitxml=test-results.xml
+
+      - name: Run ONNX Runtime CPU Benchmark
+        run: |
+          python infra/scripts/benchmark_onnx.py
+
+      - name: Run End-to-End Smoke Test
+        run: |
+          python infra/scripts/smoke_test.py
+
+  build-multiarch-images:
+    needs: test-and-evaluate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for ARM64 Emulation
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Product A ARM64 Image (Dry Run)
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            -f product-a-copilot/backend/Dockerfile \
+            -t enterprise-copilot:ci-check .
+
+      - name: Build Product B ARM64 Image (Dry Run)
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            -f product-b-qc/backend/Dockerfile \
+            -t enterprise-qc:ci-check .

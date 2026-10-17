@@ -1,0 +1,25 @@
+name: Build & Deployment Artifacts
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Project 1 Copilot Image (ARM64 & AMD64)
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            -f apps/enterprise-copilot/backend/Dockerfile \
+            -t enterprise-copilot:latest .
+      - name: Build Project 2 Quality Gate Image (ARM64 & AMD64)
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            -f apps/visual-quality-gate/backend/Dockerfile \
+            -t visual-quality-gate:latest .

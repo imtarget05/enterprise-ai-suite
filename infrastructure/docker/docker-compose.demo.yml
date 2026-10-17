@@ -1,0 +1,117 @@
+version: "3.8"
+
+networks:
+  internal_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres_data:
+  erpnext_sites:
+  mariadb_data:
+  redis_data:
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+    networks:
+      - internal_net
+    depends_on:
+      - copilot-api
+      - qc-api
+
+  postgres-core:
+    image: postgres:16-alpine
+    container_name: postgres-core
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=enterprise_secure_pg_pass_2026
+      - POSTGRES_DB=enterprise_suite
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 1024M
+    networks:
+      - internal_net
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: redis-cache
+    restart: unless-stopped
+    command: redis-server --maxmemory 200mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+    networks:
+      - internal_net
+
+  copilot-api:
+    build:
+      context: ../../
+      dockerfile: product-a-copilot/backend/Dockerfile
+    container_name: copilot-api-prod
+    restart: unless-stopped
+    environment:
+      - PROFILE=demo
+      - DATABASE_URL=postgresql://postgres:enterprise_secure_pg_pass_2026@postgres-core:5432/enterprise_suite
+      - REDIS_URL=redis://redis-cache:6379/0
+      - REDIS_ENABLED=true
+      - QDRANT_URL=https://cloud.qdrant.io:6333
+      - ERPNEXT_USE_SANDBOX=true
+      - SALESFORCE_USE_SANDBOX=true
+      - LLM_PROVIDER=FREE_TIER
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 1280M
+    networks:
+      - internal_net
+    depends_on:
+      - postgres-core
+      - redis-cache
+
+  qc-api:
+    build:
+      context: ../../
+      dockerfile: product-b-qc/backend/Dockerfile
+    container_name: qc-api-prod
+    restart: unless-stopped
+    environment:
+      - PROFILE=demo
+      - DATABASE_URL=postgresql://postgres:enterprise_secure_pg_pass_2026@postgres-core:5432/enterprise_suite
+      - STORAGE_PROVIDER=r2
+      - ERPNEXT_USE_SANDBOX=true
+      - KAFKA_ENABLED=false
+      - INFERENCE_THREADS=2
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 1536M
+    networks:
+      - internal_net
+    depends_on:
+      - postgres-core
